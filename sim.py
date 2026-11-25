@@ -75,7 +75,13 @@ def apply_1q(psi, U, k):
     For every index i whose bit k is 0, the pair ``(psi[i], psi[i + 2**k])``
     differs only in qubit k. Replace it with ``U @ (psi[i], psi[i + 2**k])``.
 
-    :param psi: State vector; changed in place.
+    Vectorised: reshape psi (a view, no copy) to (2**(n-k-1), 2, 2**k).
+    The middle axis is bit k, so ``view[:, 0, :]`` holds every first
+    element of a pair and ``view[:, 1, :]`` every second element. All
+    pairs are then updated with a few NumPy operations instead of a
+    Python loop over 2**n indices.
+
+    :param psi: State vector; changed in place. Must be contiguous.
     :type psi: numpy.ndarray
     :param U: 2x2 gate matrix.
     :type U: numpy.ndarray
@@ -87,12 +93,11 @@ def apply_1q(psi, U, k):
     >>> psi
     array([0.+0.j, 1.+0.j])
     """
-    step = 2**k
-    for i in range(len(psi)):
-        if i & step == 0:  # bit k is 0, so i is the first of a pair
-            a0, a1 = psi[i], psi[i + step]
-            psi[i] = U[0, 0] * a0 + U[0, 1] * a1
-            psi[i + step] = U[1, 0] * a0 + U[1, 1] * a1
+    view = psi.reshape(-1, 2, 2**k)  # a view: writing to it writes to psi
+    a0 = view[:, 0, :].copy()        # copy: view[:, 0, :] is overwritten next
+    a1 = view[:, 1, :]
+    view[:, 0, :] = U[0, 0] * a0 + U[0, 1] * a1
+    view[:, 1, :] = U[1, 0] * a0 + U[1, 1] * a1
 
 
 def apply_2q(psi, M, j, k):

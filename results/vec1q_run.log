@@ -1,0 +1,24 @@
+impl = current (sim.py), commit = f8ab0c1-dirty, 2026-11-25T12:54:19
+  n     seconds    peak MB
+  4      0.0009       40.7
+  5      0.0029       41.1
+  6      0.0026       40.3
+  7      0.0045       40.7
+  8      0.0080       41.3
+  9      0.0243       40.7
+ 10      0.0541       40.7
+ 11      0.1318       41.1
+ 12      0.2463       42.2
+ 13      0.4219       42.3
+ 14      0.8326       44.8
+ 15      1.6801       46.5
+ 16      3.4955       52.8
+ 17      7.4788       60.0
+ 18     15.6593       97.2
+ 19     33.6367      139.0
+ 20     72.4423      311.9
+stopping: 72.4 s > --max-seconds 60.0
+appended to results/benchmarks.csv
+impl = current (sim.py), commit = f8ab0c1-dirty, 2026-11-25T12:56:37
+n = 12, depth = 20, shots = 500: 81.54 s, 6.1 shots/s, peak 42.7 MB
+appended to results/benchmarks.csv
