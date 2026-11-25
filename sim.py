@@ -108,7 +108,14 @@ def apply_2q(psi, M, j, k):
     and replace it with ``M @ group``. j is the first-listed qubit (the
     control for CNOT).
 
-    :param psi: State vector; changed in place.
+    Vectorised: with hi = max(j, k) and lo = min(j, k), reshape psi (a
+    view, no copy) to (2**(n-hi-1), 2, 2**(hi-lo-1), 2, 2**lo). Axis 1 is
+    bit hi and axis 3 is bit lo, so fixing those two axes picks out one
+    of the four members of every group at once. Each new member is then
+    a weighted sum of the four old ones, done with NumPy operations
+    instead of a Python loop over 2**n indices.
+
+    :param psi: State vector; changed in place. Must be contiguous.
     :type psi: numpy.ndarray
     :param M: 4x4 gate matrix.
     :type M: numpy.ndarray
@@ -117,11 +124,20 @@ def apply_2q(psi, M, j, k):
     :param k: Second-listed qubit.
     :type k: int
     """
-    bj, bk = 2**j, 2**k
-    for i in range(len(psi)):
-        if i & bj == 0 and i & bk == 0:  # bits j and k are both 0
-            idx = [i, i + bk, i + bj, i + bj + bk]
-            psi[idx] = M @ psi[idx]
+    hi, lo = max(j, k), min(j, k)
+    view = psi.reshape(-1, 2, 2**(hi - lo - 1), 2, 2**lo)  # a view of psi
+
+    def part(bit_j, bit_k):
+        """All amplitudes with qubit j = bit_j and qubit k = bit_k (a view)."""
+        bit_hi, bit_lo = (bit_j, bit_k) if j > k else (bit_k, bit_j)
+        return view[:, bit_hi, :, bit_lo, :]
+
+    # Same order as the matrix rows: (j, k) = (0,0), (0,1), (1,0), (1,1).
+    bits = ((0, 0), (0, 1), (1, 0), (1, 1))
+    old = [part(bj, bk).copy() for bj, bk in bits]  # copies: psi is overwritten below
+    for r, (bj, bk) in enumerate(bits):
+        part(bj, bk)[...] = (M[r, 0] * old[0] + M[r, 1] * old[1]
+                             + M[r, 2] * old[2] + M[r, 3] * old[3])
 
 
 def apply_gate(psi, gate):
