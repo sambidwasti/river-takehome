@@ -1,0 +1,35 @@
+# 2026-11-25T14:00:18-05:00  commit bbb0548  (round 2: vectorised apply_1q + apply_2q)
+# python3 -m cProfile -s tottime benchmark.py worker --impl current --depth 20 --seed 1 --n 12 --shots 2000 --p-gate 0.001 --p-idle 0.001 --p-readout 0.01
+# many-shots regime: n = 12, depth 20, p_gate = p_idle = 1e-3, p_readout = 1e-2, 2000 shots; sorted by tottime
+{"seconds": 18.820264083042275, "shots_per_second": 106.2684344478498, "peak_memory_mb": 45.154304}
+         10341343 function calls (10338589 primitive calls) in 19.001 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   480937    8.248    0.000    8.973    0.000 sim.py:72(apply_1q)
+   220000    6.363    0.000    7.614    0.000 sim.py:103(apply_2q)
+  1361012    1.391    0.000    1.391    0.000 {method 'copy' of 'numpy.ndarray' objects}
+   480000    0.523    0.000    0.827    0.000 sim.py:31(ry)
+  1760000    0.413    0.000    0.413    0.000 sim.py:130(part)
+     2000    0.407    0.000   18.813    0.009 sim.py:215(one_shot)
+   984000    0.327    0.000    0.327    0.000 {method 'random' of 'numpy.random._generator.Generator' objects}
+   480129    0.305    0.000    0.305    0.000 {built-in method numpy.array}
+   700000    0.300    0.000   17.697    0.000 sim.py:143(apply_gate)
+   700938    0.129    0.000    0.129    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+   960000    0.118    0.000    0.461    0.000 sim.py:198(maybe_error)
+   700000    0.083    0.000    0.083    0.000 sim.py:163(qubits_of)
+     2000    0.070    0.000    0.078    0.000 {method 'choice' of 'numpy.random._generator.Generator' objects}
+   920889    0.069    0.000    0.069    0.000 {method 'add' of 'set' objects}
+       34    0.054    0.002    0.054    0.002 {built-in method _imp.create_dynamic}
+   220292    0.023    0.000    0.024    0.000 {built-in method builtins.max}
+   220914    0.023    0.000    0.023    0.000 {built-in method builtins.min}
+      127    0.017    0.000    0.017    0.000 {built-in method marshal.loads}
+   436/24    0.010    0.000    0.176    0.007 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+       15    0.007    0.000    0.377    0.025 __init__.py:1(<module>)
+     2001    0.006    0.000    0.006    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+      133    0.006    0.000    0.006    0.000 {built-in method _io.open_code}
+      716    0.005    0.000    0.005    0.000 {built-in method posix.stat}
+      937    0.005    0.000    0.005    0.000 {method 'integers' of 'numpy.random._generator.Generator' objects}
+      132    0.004    0.000    0.004    0.000 {method 'read' of '_io.BufferedReader' objects}
+        1    0.004    0.004   18.820   18.820 sim.py:260(sample_counts)
