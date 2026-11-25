@@ -1,0 +1,33 @@
+# 2026-11-25T11:15:28-05:00  commit c0832ab
+# python3 -m cProfile -s tottime benchmark.py worker --impl reference --n 12 --depth 20 --shots 50 --p-gate 0.001 --p-idle 0.001 --p-readout 0.01 --seed 1
+# many-shots regime: n = 12, depth 20, p_gate = p_idle = 1e-3, p_readout = 1e-2, 50 shots; sorted by tottime
+{"seconds": 20.277009916026145, "shots_per_second": 2.46584679926018, "peak_memory_mb": 42.663936}
+         282202 function calls (279448 primitive calls) in 20.470 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    12023   12.183    0.001   12.184    0.001 sim_reference.py:72(apply_1q)
+     5500    8.003    0.001    8.003    0.001 sim_reference.py:98(apply_2q)
+       34    0.047    0.001    0.048    0.001 {built-in method _imp.create_dynamic}
+      127    0.027    0.000    0.027    0.000 {built-in method marshal.loads}
+      131    0.023    0.000    0.023    0.000 {method 'read' of '_io.BufferedReader' objects}
+    12000    0.022    0.000    0.033    0.000 sim_reference.py:31(ry)
+       50    0.016    0.000   20.277    0.406 sim_reference.py:194(one_shot)
+    24600    0.016    0.000    0.016    0.000 {method 'random' of 'numpy.random._generator.Generator' objects}
+    12129    0.013    0.000    0.013    0.000 {built-in method numpy.array}
+    17500    0.009    0.000   20.206    0.001 sim_reference.py:122(apply_gate)
+      127    0.008    0.000    0.035    0.000 <frozen importlib._bootstrap_external>:751(_compile_bytecode)
+      133    0.007    0.000    0.007    0.000 {built-in method _io.open_code}
+      716    0.006    0.000    0.006    0.000 {built-in method posix.stat}
+    17500    0.005    0.000    0.005    0.000 sim_reference.py:142(qubits_of)
+    24000    0.004    0.000    0.043    0.000 sim_reference.py:177(maybe_error)
+       50    0.003    0.000    0.003    0.000 {method 'choice' of 'numpy.random._generator.Generator' objects}
+  297/294    0.003    0.000    0.008    0.000 {built-in method builtins.__build_class__}
+        1    0.002    0.002    0.003    0.003 defchararray.py:1(<module>)
+        3    0.002    0.001    0.002    0.001 {built-in method builtins.compile}
+    34/24    0.002    0.000    0.022    0.001 {built-in method _imp.exec_dynamic}
+    23889    0.002    0.000    0.002    0.000 {method 'add' of 'set' objects}
+       66    0.002    0.000    0.002    0.000 {built-in method posix.getcwd}
+    43/25    0.002    0.000    0.003    0.000 _parser.py:512(_parse)
+     5796    0.002    0.000    0.002    0.000 {built-in method builtins.getattr}

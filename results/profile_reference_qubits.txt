@@ -1,0 +1,33 @@
+# 2026-11-25T11:15:14-05:00  commit c0832ab
+# python3 -m cProfile -s tottime benchmark.py worker --impl reference --n 16 --depth 20 --shots 1 --p-gate 0 --p-idle 0 --p-readout 0 --seed 1
+# many-qubits regime: noiseless, 1 shot, n = 16, depth 20; sorted by tottime
+{"seconds": 8.736869207990821, "shots_per_second": 0.11445747626454002, "peak_memory_mb": 43.515904}
+         121038 function calls (118284 primitive calls) in 9.371 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      320    5.162    0.016    5.162    0.016 sim_reference.py:72(apply_1q)
+      150    3.563    0.024    3.563    0.024 sim_reference.py:98(apply_2q)
+       34    0.438    0.013    0.446    0.013 {built-in method _imp.create_dynamic}
+      131    0.038    0.000    0.038    0.000 {method 'read' of '_io.BufferedReader' objects}
+      127    0.017    0.000    0.017    0.000 {built-in method marshal.loads}
+      133    0.015    0.000    0.015    0.000 {built-in method _io.open_code}
+      716    0.011    0.000    0.011    0.000 {built-in method posix.stat}
+    34/24    0.010    0.000    0.114    0.005 {built-in method _imp.exec_dynamic}
+      347    0.008    0.000    0.024    0.000 <frozen importlib._bootstrap_external>:1590(find_spec)
+       34    0.008    0.000    0.456    0.013 <frozen importlib._bootstrap_external>:1287(create_module)
+      127    0.004    0.000    0.020    0.000 <frozen importlib._bootstrap_external>:751(_compile_bytecode)
+      130    0.003    0.000    0.084    0.001 <frozen importlib._bootstrap_external>:1062(get_code)
+  297/294    0.003    0.000    0.008    0.000 {built-in method builtins.__build_class__}
+       15    0.003    0.000    1.171    0.078 __init__.py:1(<module>)
+      656    0.003    0.000    0.003    0.000 {method 'random' of 'numpy.random._generator.Generator' objects}
+      246    0.003    0.000    0.003    0.000 {method 'pop' of 'dict' objects}
+       66    0.003    0.000    0.003    0.000 {built-in method posix.getcwd}
+       15    0.002    0.000    0.002    0.000 {built-in method posix.listdir}
+      320    0.002    0.000    0.003    0.000 sim_reference.py:31(ry)
+        1    0.002    0.002    8.737    8.737 sim_reference.py:194(one_shot)
+   436/24    0.002    0.000    0.626    0.026 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+        3    0.002    0.001    0.002    0.001 {built-in method builtins.compile}
+        1    0.002    0.002    0.002    0.002 linalg.py:2191(lstsq)
+        1    0.002    0.002    0.061    0.061 _methods.py:1(<module>)

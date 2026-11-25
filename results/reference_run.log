@@ -1,0 +1,25 @@
+impl = reference (sim_reference.py), commit = c9eb89c-dirty, 2026-11-25T02:02:03
+  n     seconds    peak MB
+  4      0.0019       39.9
+  5      0.0017       40.4
+  6      0.0037       40.5
+  7      0.0078       40.6
+  8      0.0256       40.4
+  9      0.0598       40.9
+ 10      0.1552       40.5
+ 11      0.2835       40.2
+ 12      0.4622       40.1
+ 13      0.9033       40.4
+ 14      1.8757       41.2
+ 15      3.8780       42.5
+ 16      8.2021       43.4
+ 17     17.6480       46.2
+ 18     39.2921       45.5
+ 19     81.0242       61.8
+stopping: 81.0 s > --max-seconds 60.0
+appended to results/benchmarks.csv
+impl = reference (sim_reference.py), commit = c0832ab-dirty, 2026-11-25T02:04:39
+n = 12, depth = 20, shots = 500: 199.03 s, 2.5 shots/s, peak 41.1 MB
+appended to results/benchmarks.csv
+
+[exited with code 0]
