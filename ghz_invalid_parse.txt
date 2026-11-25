@@ -1,0 +1,13 @@
+QUBITS 3
+# INVALID on purpose: the GHZ circuit with two gates on qubit 0 in one step.
+# Parsing must fail with: qubit 0 is used twice in step 4
+H 0
+TICK
+CNOT 0 1
+TICK
+CNOT 1 2
+TICK
+X 0
+H 0
+TICK
+RZ 0.785 0

@@ -1,0 +1,22 @@
+
+QUBITS 3
+# prepare a 3-qubit GHZ state
+H 0
+TICK
+CNOT 0 1
+TICK
+CNOT 1 2
+TICK
+# two empty steps: every qubit idle
+TICK
+TICK
+# several gates in one step
+X 0
+X 1
+X 2
+TICK
+# a two-qubit and a single-qubit gate in one step
+CZ 0 1
+S 2
+TICK
+RZ 0.785 0
