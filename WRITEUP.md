@@ -1,4 +1,6 @@
-# Noisy quantum circuit simulator: write-up
+# Quantum circuit simulator: write-up
+11/26/26 
+Sambid Wasti
 
 **Approach.** Build the simplest simulator I could trust, pin it down with tests, validate the
 noise end to end, then make it fast in measured steps: profile, change one thing, check against
@@ -14,8 +16,9 @@ brief. Two design decisions:
   `apply_2q`, written as direct loops over the amplitudes. Slow, but easy to check against the
   definitions, which made it a trustworthy reference (tagged `v1-reference`) for Part 3.
 - **Separate parsing from simulation.** `read_circuit.py` turns the circuit file into a list of
-  time steps; `sim.py` only runs them. Each part is tested on its own, and invalid files raise
-  clear errors.
+  time steps; `sim.py` only runs them. The parser was tested manually with an invalid circuit
+  (`ghz_invalid_parse.txt`: two gates on one qubit in the same step), which it rejects with a
+  clear error.
 
 Tests pin down correctness before any optimisation:
 - **Gates (`test_gates.py`):** each gate on a simple input gives what its matrix predicts.
@@ -29,28 +32,28 @@ Tests pin down correctness before any optimisation:
 
 ### The experiment
 
-Here we test to make sure the noises behave as we expect.
+Here we test to make sure the noise behaves as we expect.
 We start with one qubit in 1 (X), leave it idle for m time steps, then measure; p_gate = 0, so the only errors are idle and readout (`idle_noise.py`). Run m = 0, 5, …, 60 with 10,000 shots each and record the fraction f of shots that read 1. Each m uses its own seed, so the points are independent.
 
 ### The expected curve
-- Since there are only two outcomes for each Qubit value, 0 or 1, it is binomial in nature.
+- Since there are only two outcomes for each qubit value, 0 or 1, it is binomial in nature.
 - As the number of idle steps m grows, the random X/Y errors scramble the qubit, so it becomes equally likely to read 0 or 1: the fraction tends to 1/2. (More shots only make each point more precise; they do not move it towards 1/2.)
-- Initially, for shot 1, we just have a X gate and a readout. The readout error is 2% hence at beginning, the ratio starts at 0.98 and will decay to 1/2. 
-- Per idle step, the bit flips with probability q = (2/3)·p_idle (X or Y flips it, Z does not). (This is just the probability to be chosen one of the gates, and not gate noise)
-- The funciton f = 1/2 + d. Where d is the distance above 1/2.
+- Initially, at m = 0, we just have an X gate and a readout. The readout error is 2% hence at the beginning the ratio starts at 0.98 and will decay to 1/2. 
+- Per idle step, the bit flips with probability q = (2/3)·p_idle (X or Y flips it, Z does not). (This is the probability that one of those errors is chosen, not gate noise.)
+- The function is f = 1/2 + d, where d is the distance above 1/2.
 - One step maps d to (1 − 2q)·d, so after m steps
   d = (1/2)(1 − 2q)^m, starting from d = 1/2 (the qubit is 1).
 - Readout flips the result with probability r = p_readout, which scales d by (1 − 2r), where r is the readout error.
 
   f(m) = 1/2 + 1/2 · (1 − 2r) · (1 − 2q)^m,   q = 2/3 · p_idle
 
-The curve starts at 1 − r and decays to 1/2. It has the form: C + AX^m. The readout error defines the stretch or shrink of the function (as a simple transformation). As the constant A<1 will shrink the function and A>1 will strech so it defines how fast it reaches 1/2. The q value that has p_idle, defines the horizontal stretch. Which also defines how fast it reaches 1/2.
+The curve starts at 1 − r and decays to 1/2. It has the form: C + AX^m. The readout error defines the stretch or shrink of the function (as a simple transformation). As the constant A<1 will shrink the function and A>1 will stretch so it defines how fast it reaches 1/2. The q value that has p_idle, defines the horizontal stretch. Which also defines how fast it reaches 1/2.
 
 ### Fit and uncertainty
 
-- Error bars on each point: binomial, sqrt(f(1 − f)/N), with N = 10,000 shots. This is taken from standard deviation = sqrt(variance)
+- Error bars on each point: binomial, sqrt(f(1 − f)/N), with N = 10,000 shots. This is the standard deviation, sqrt(variance).
 - p_readout is treated as known (it is an input of the simulation), so the fit has one
-  free parameter, p_idle. It is fitted with `scipy.optimize.curve_fit`, weighted by the errorbars (`absolute_sigma=True`); 
+  free parameter, p_idle. It is fitted with `scipy.optimize.curve_fit`, weighted by the error bars (`absolute_sigma=True`); 
 - Result: injected p_idle = 0.05, fitted **0.04911 ± 0.00054**, 1.66σ from the injected
   value, so consistent.
 - Ideally, we could switch and verify the p_readout by fixing p_idle.
@@ -66,8 +69,8 @@ compared with the drop of the curve over the first 20–30 steps, and the fitted
 
 - **Very small p_idle:** over m ≤ 60 the curve barely moves, so the decay is smaller than the error bars and p_idle is poorly determined. More steps or more shots are needed.
 - **Very large p_idle:** the curve reaches 1/2 within a few steps, so only the first points carry information. At p_idle = 0.75, 1 − 2q = 0 and the qubit is fully randomised after one step; beyond that the model no longer describes a decay.
-- **An interesting note** on this is that for horizontal expansion and stretch of the function, the smaller value of the coeeficient (p_idle in this case) stretches. So a smaller p_idle stretches the curve and 1/2 is slowly reached.
-- **Large readout error:** the factor (1 − 2r) shrinks the whole signal; at r = 1/2 there is nothing left to fit. Like aforementioned, for vertical stretch, its a direct multiplier so higher factor stretches it or lower shrinks.
+- **An interesting note** on this is that for horizontal expansion and stretch of the function, the smaller value of the coefficient (p_idle in this case) stretches. So a smaller p_idle stretches the curve and 1/2 is slowly reached.
+- **Large readout error:** the factor (1 − 2r) shrinks the whole signal; at r = 1/2 there is nothing left to fit. As mentioned above, for vertical stretch it's a direct multiplier so higher factor stretches it or lower shrinks.
 
 ## Part 3: Making it fast
 
@@ -82,7 +85,6 @@ All benchmarks ran on one machine (details in `hardware.md`):
 | Caches | L2 16 MiB (performance cluster), 4 MiB (efficiency cluster); 128-byte lines |
 | Memory | 18 GB unified LPDDR5, 150 GB/s peak bandwidth (Apple's published figure, not measured) |
 | GPU | 14-core M3 Pro GPU, not used |
-| Software | macOS 27.2.1, Python 3.12.2, NumPy 1.26.4, numba 0.60.0 |
 
 ### 2. Reference version
 
@@ -102,7 +104,7 @@ applies RY(θ) to every qubit with a random θ, then a TICK, then CNOTs on neigh
 
 ### 4. Method: profile, change one thing, measure
 
-Each round: profile both regimes with cProfile, change the one function the profile points at, check the results against the reference (`test_equivalence.py`), benchmark both regimes, and record the numbers in `results/progress.md` with the log and profile files. Each fo hte Cprofile is saved and used to extract components to optimize. Close results were rechecked with 3 alternating runs of the old and new code, and the medians compared. If the optimization or the change worsen the performance, it was reverted.
+Each round: profile both regimes with cProfile, change the one function the profile points at, check the results against the reference (`test_equivalence.py`), benchmark both regimes, and record the numbers in `results/progress.md` with the log and profile files. Each cProfile output is saved and used to pick the next component to optimise. Close results were rechecked with 3 alternating runs of the old and new code, and the medians compared. If a change made performance worse, it was reverted, and the reason was recorded.
 
 ### 5. Optimisation rounds
 
@@ -162,7 +164,9 @@ Every round passed `test_equivalence.py` (72 tests) against the reference before
 
 - **Noiseless: compared directly.** Final states (all 2^n amplitudes) must match the reference
   within 1e-12, over brickwork and random circuits using every gate, including gates on the
-  lowest and highest qubits. The n ≥ 19 code paths were checked at n = 19 and 20 (difference 0.0).
+  lowest and highest qubits. The tests use small n, so the size-dependent paths tried in 3c and 3d
+  (used only for n ≥ 19) were also checked at n = 19 and 20 (difference 0.0); both were later
+  replaced by the numba kernel.
 - **Noisy, same seed: identical counts.** The strictest check, but it relies on both versions
   drawing random numbers in the same order; an optimisation that reorders the draws (e.g.
   batching the noise) would fail it while still being correct.
@@ -232,7 +236,7 @@ Round 4 (numba), the final version, up to the machine limit:
 - **n ≈ 17–20:** the state (16 × 2^n bytes) outgrows the 16 MiB L2 cache; the ratio rises towards 2.
 - **n = 21–28:** the state streams from main memory on every gate; the ratio holds at 2.0–2.2.
 - **n = 29:** 4.1× instead of 2.1×. The process peaked at 11 GB of 18 GB, most likely memory
-  pressure (compression and swapping). n = 30 needs 17 GiB for the state alone: n = 29 is the
+  pressure (compression and swapping). n = 30 needs 16 GiB (17.2 GB) for the state alone: n = 29 is the
   limit of this machine.
 
 #### Bytes, flops and bandwidth
@@ -289,9 +293,18 @@ In order of expected value, based on the profiles and the bandwidth numbers abov
 1. **Multithreading (numba `prange`).** The many-qubits regime runs on one core at 17–18% of peak bandwidth. Splitting each gate's loop across cores is the most direct way to move closer to the memory limit.
 2. Extend and run the system longer to get even more extreme data points for the plot. 
 3. **Reuse work across shots.** In the shots regime the time is Python overhead, not hardware. Building the RY matrices once per circuit instead of every shot removes about 14%; moving CNOT into numba removes most of its 17%; running many shots together (one array per batch, noise drawn in bulk) would remove most of the per-gate Python cost.
-4. **Try to migrate to C++.** A C++ architecture might be faster and more useful here than Python.
-5. **Benchmark hygiene.** Repeat each benchmark several times and report the spread, rerun all versions under identical settings, and write the large-n prediction down before running it.
+4. **Migrate to C++.** A C++ architecture might be faster and more useful here than Python. So I would migrate to C++ and check the benchmarks there. 
+5. **More benchmark iterations.** Most benchmarks here are single runs. Repeating each one
+   several times would give a median and a spread (error bars) for every point: single runs
+   are noisy, especially below about 10 ms, and two decisions here (3a, 3d) were only settled
+   by 3-run rechecks after a single run looked ambiguous. I would also rerun all versions under
+   identical settings and write the large-n prediction down before running it.
 6. **Wider testing.** Run the equivalence tests at large n as well, so size-dependent code paths are always covered, and run the Part 2 limits (very small and very large p_idle).
 7. **Comparison with an established simulator** (e.g. Qiskit Aer) on the same circuits, and a GPU version using the M3's unified memory.
 8. **Test on a different machine.** Rerun the benchmarks on other hardware to check the results.
 9. **Cache the RY matrices.** `ry()` rebuilds the same 2×2 matrix for every gate in every shot (480,000 times in 2,000 shots, about 14% of the shots time in round 4). Building each matrix once per circuit and reusing it across shots is a small, safe change for the many-shots regime.
+10. **Size-dependent kernels.** Some changes helped one regime and hurt the other: in-place
+   operations (3c) were 3–8% faster for large n but 21% slower for shots at n = 12. The fix was
+   to pick the code path by state size (`INPLACE_MIN_SIZE = 2**19` in `apply_1q`, commit
+   `b8508de`), later replaced by the numba kernel. I would look for more such crossovers, where
+   the best method depends on n (cache size, call overhead), and choose the kernel/fucntions accordingly.

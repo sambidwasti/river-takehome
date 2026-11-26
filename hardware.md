@@ -13,9 +13,6 @@ All benchmarks were run on this machine.
 | Memory | 18 GB unified (LPDDR5) |
 | Peak memory bandwidth | 150 GB/s (Apple's published figure for the M3 Pro; theoretical, not measured) |
 | GPU | Apple M3 Pro, 14 cores (not used) |
-| OS | macOS 27.2.1 |
-| Python | 3.12.2 |
-| NumPy | 1.26.4 (BLAS: OpenBLAS) |
 
 ## What this means for the benchmarks
 
