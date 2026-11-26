@@ -122,6 +122,31 @@ def apply_1q(psi, U, k):
         v1[...] = U[1, 0] * a0 + U[1, 1] * v1
 
 
+def apply_x(psi, k):
+    """Apply X to qubit k, in place.
+
+    X swaps the amplitudes with qubit k = 0 and qubit k = 1. So this swaps
+    the two halves of the reshaped view: no matrix and no arithmetic.
+
+    Uses the same reshaped view as :func:`apply_1q`.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param k: Qubit the gate acts on.
+    :type k: int
+
+    >>> psi = zero_state(1)
+    >>> apply_x(psi, 0)
+    >>> psi
+    array([0.+0.j, 1.+0.j])
+    """
+    view = psi.reshape(-1, 2, 2**k)  # a view of psi
+    a, b = view[:, 0, :], view[:, 1, :]
+    tmp = a.copy()   # copy: a is overwritten next
+    a[...] = b
+    b[...] = tmp
+
+
 def apply_2q(psi, M, j, k):
     """Apply a 4x4 gate M to qubits j and k, in place.
 
@@ -233,7 +258,9 @@ def apply_gate(psi, gate):
     :raises ValueError: For an unknown gate name.
     """
     name = gate[0]
-    if name in GATES_1Q:
+    if name == "X":
+        apply_x(psi, gate[1])              # a swap: faster than the 2x2 matrix
+    elif name in GATES_1Q:
         apply_1q(psi, GATES_1Q[name], gate[1])
     elif name in ROTATIONS:
         apply_1q(psi, ROTATIONS[name](gate[1]), gate[2])
@@ -296,7 +323,10 @@ def maybe_error(psi, q, p, rng):
     """
     if rng.random() < p:
         pauli = PAULIS[rng.integers(3)]
-        apply_1q(psi, GATES_1Q[pauli], q)
+        if pauli == "X":
+            apply_x(psi, q)                # a swap: faster than the 2x2 matrix
+        else:
+            apply_1q(psi, GATES_1Q[pauli], q)
 
 
 def one_shot(n_qubits, steps, p_gate, p_idle, p_readout, rng):
