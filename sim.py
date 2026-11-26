@@ -175,6 +175,30 @@ def apply_y(psi, k):
     b[...] = tmp        # new 1-half = i x old 0-half
 
 
+def apply_z(psi, k):
+    """Apply Z to qubit k, in place.
+
+    Z = [[1, 0], [0, -1]] leaves the qubit k = 0 half alone and flips the
+    sign of the qubit k = 1 half: one in-place pass over half the state,
+    no copy and no adds.
+
+    Uses the same reshaped view as :func:`apply_1q`.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param k: Qubit the gate acts on.
+    :type k: int
+
+    >>> psi = zero_state(1)
+    >>> psi[0], psi[1] = 0, 1      # qubit 0 is 1
+    >>> apply_z(psi, 0)
+    >>> psi
+    array([ 0.+0.j, -1.+0.j])
+    """
+    view = psi.reshape(-1, 2, 2**k)  # a view of psi
+    view[:, 1, :] *= -1              # qubit k = 1: flip the sign
+
+
 def apply_2q(psi, M, j, k):
     """Apply a 4x4 gate M to qubits j and k, in place.
 
@@ -290,6 +314,8 @@ def apply_gate(psi, gate):
         apply_x(psi, gate[1])              # a swap: faster than the 2x2 matrix
     elif name == "Y":
         apply_y(psi, gate[1])              # a swap with factors -i, i
+    elif name == "Z":
+        apply_z(psi, gate[1])              # a sign flip on half the state
     elif name in GATES_1Q:
         apply_1q(psi, GATES_1Q[name], gate[1])
     elif name in ROTATIONS:
@@ -358,7 +384,7 @@ def maybe_error(psi, q, p, rng):
         elif pauli == "Y":
             apply_y(psi, q)                # a swap with factors -i, i
         else:
-            apply_1q(psi, GATES_1Q[pauli], q)
+            apply_z(psi, q)                # Z: a sign flip on half the state
 
 
 def one_shot(n_qubits, steps, p_gate, p_idle, p_readout, rng):
