@@ -27,3 +27,9 @@ regimes. Speed-ups are against the reference (`sim_reference.py`, tag `v1-refere
   2 × 1 blocks) that is hundreds of thousands of tiny multiplications, slower than the elementwise version.
   The shots regime improved about 16% (109 → 126.5 shots/s). Kept as a record; to be reverted or replaced.
 - Round 3b: CNOT no longer goes through the general 4x4 `apply_2q`; it swaps the control = 1 quarters (one copy, two writes, no flops). Quick check against round 2, 3 runs each, alternating: n = 19 1.436 → 0.944 s (1.5×), n = 20 3.361 → 2.157 s (1.6×). Profile at n = 20: CNOT now 0.23 s (was 1.96 s in `apply_2q`); `apply_1q` is 84% of the time. Shots 109 → 193 shots/s (1.8×).
+- Why `apply_1q` is slow (3b profile): it is 87% of the time at n = 20 and 75% in the shots run. Each gate
+  does 9 separate NumPy operations (1 copy, 4 multiplies, 2 adds, 2 writes), each a full pass over half the
+  state with a new temporary: about 160N bytes moved against the ideal 32N (N = 2^n amplitudes, 16 B each).
+  For small k the slices are strided (k = 0: every other element), wasting half of each cache line. RY is
+  real but stored as complex, so each multiply costs 6 flops instead of 2. In the shots run (n = 12, 2048
+  amplitudes per half) the arithmetic is under 1 µs; the ~18 µs per call is fixed overhead of ~10 NumPy calls.
