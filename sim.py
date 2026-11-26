@@ -7,6 +7,7 @@ Usage::
 
 import argparse
 
+import numba
 import numpy as np
 
 from read_circuit import read_circuit
@@ -69,9 +70,21 @@ def zero_state(n_qubits):
     return psi
 
 
-#: From this state size (n = 19) apply_1q works in place; below it, the
-#: version with temporaries is faster (see apply_1q).
-INPLACE_MIN_SIZE = 2**19
+@numba.njit(cache=True)
+def _apply_1q_loop(psi, U, k):
+    """Compiled loop behind :func:`apply_1q` (numba, machine code).
+
+    One pass over psi: each pair is read once, multiplied by U and written
+    back. No copies, no temporary arrays.
+    """
+    stride = 1 << k                      # 2**k: distance between the pair
+    u00, u01, u10, u11 = U[0, 0], U[0, 1], U[1, 0], U[1, 1]
+    for block in range(0, psi.size, 2 * stride):   # blocks where bit k = 0, then 1
+        for i in range(block, block + stride):     # every index with bit k = 0
+            a0 = psi[i]
+            a1 = psi[i + stride]
+            psi[i] = u00 * a0 + u01 * a1
+            psi[i + stride] = u10 * a0 + u11 * a1
 
 
 def apply_1q(psi, U, k):
@@ -80,21 +93,12 @@ def apply_1q(psi, U, k):
     For every index i whose bit k is 0, the pair ``(psi[i], psi[i + 2**k])``
     differs only in qubit k. Replace it with ``U @ (psi[i], psi[i + 2**k])``.
 
-    Vectorised: reshape psi (a view, no copy) to (2**(n-k-1), 2, 2**k).
-    The middle axis is bit k, so ``view[:, 0, :]`` holds every first
-    element of a pair and ``view[:, 1, :]`` every second element. All
-    pairs are then updated with a few NumPy operations instead of a
-    Python loop over 2**n indices.
-
-    Two paths, chosen by the size of psi:
-
-    * Large states (``psi.size >= INPLACE_MIN_SIZE``): in place. The
-      multiplies and adds write straight into psi (``*=``, ``+=``), so
-      there is one copy and one temporary instead of a new array for every
-      operation: less memory traffic, 3-8% faster at n = 19-24.
-    * Small states: fresh temporaries, then write back. On small arrays
-      the in-place writes into strided views were about 20% slower
-      (many-shots run at n = 12).
+    Compiled loop (numba): one plain loop over the pairs, compiled to
+    machine code. Each pair is read once and written once, so there is one
+    pass over the state with no temporary arrays (the NumPy version made
+    about 7 passes), and almost no per-call overhead. The first call
+    compiles the loop (about a second); ``cache=True`` saves the compiled
+    code so later runs skip that.
 
     :param psi: State vector; changed in place. Must be contiguous.
     :type psi: numpy.ndarray
@@ -108,18 +112,7 @@ def apply_1q(psi, U, k):
     >>> psi
     array([0.+0.j, 1.+0.j])
     """
-    view = psi.reshape(-1, 2, 2**k)  # a view: writing to it writes to psi
-    v0, v1 = view[:, 0, :], view[:, 1, :]
-    a0 = v0.copy()          # old v0, needed for the new v1
-    if psi.size >= INPLACE_MIN_SIZE:   # large state: in place, less memory traffic
-        v0 *= U[0, 0]           # in place: no new array
-        v0 += U[0, 1] * v1      # one temporary (U01 * v1)
-        v1 *= U[1, 1]
-        a0 *= U[1, 0]           # reuse the copy instead of a new temporary
-        v1 += a0
-    else:                              # small state: temporaries are faster
-        v0[...] = U[0, 0] * a0 + U[0, 1] * v1
-        v1[...] = U[1, 0] * a0 + U[1, 1] * v1
+    _apply_1q_loop(psi, U, k)
 
 
 def apply_x(psi, k):
