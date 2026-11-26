@@ -445,23 +445,10 @@ def main(argv=None):
     :type argv: list[str] or None
     """
     args = parse_args(argv)
-    print("circuit   =", args.circuit)
-    print("shots     =", args.shots)
-    print("p_gate    =", args.p_gate)
-    print("p_idle    =", args.p_idle)
-    print("p_readout =", args.p_readout)
-    print("seed      =", args.seed)
-
     n_qubits, steps = read_circuit(args.circuit)
-    print("n_qubits  =", n_qubits)
-    print("steps     =", steps)
-    
-    # psi = run(n_qubits, steps)
-    # print("state     =", psi)
-
     counts = sample_counts(n_qubits, steps, args.shots, args.p_gate,
                            args.p_idle, args.p_readout, args.seed)
-    print("counts    =", counts)
+    print(counts)
 
 
 if __name__ == "__main__":

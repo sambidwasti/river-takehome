@@ -148,7 +148,7 @@ def parse_args():
     q = sub.add_parser("qubits", parents=[common], help="noiseless, 1 shot, n increasing")
     q.add_argument("--n-min", type=int, default=4)
     q.add_argument("--n-max", type=int, default=30)
-    q.add_argument("--max-seconds", type=float, default=60.0)
+    q.add_argument("--max-seconds", type=float, default=300.0)
 
     s = sub.add_parser("shots", parents=[common], help="n = 12 with noise, many shots")
     s.add_argument("--n", type=int, default=12)
