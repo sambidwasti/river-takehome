@@ -1,7 +1,8 @@
 # Noisy quantum circuit simulator
 
 A state-vector simulator for noisy quantum circuits, written in Python with NumPy and numba.
-The design, results and figures are in [WRITEUP.md](WRITEUP.md); the round-by-round record of
+The design, results and figures are in [WRITEUP.md](WRITEUP.md) (about 2 pages), with the
+full version in [WRITEUP_DETAILED.md](WRITEUP_DETAILED.md); the round-by-round record of
 the optimisation work is in [results/progress.md](results/progress.md).
 
 ## Setup
@@ -117,4 +118,5 @@ python3 -m cProfile -s tottime benchmark.py worker --impl current --depth 20 --s
 | `figures/` | plots and the Part 2 table |
 | `results/` | benchmark logs, cProfile outputs and `progress.md` (the optimisation record) |
 | `hardware.md` | the machine the benchmarks ran on |
-| `WRITEUP.md` | the write-up |
+| `WRITEUP.md` | the write-up (about 2 pages) |
+| `WRITEUP_DETAILED.md` | the full write-up: every round, measurement and derivation |
