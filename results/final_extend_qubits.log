@@ -1,0 +1,21 @@
+### Opt2 (c422a37), n from 25, 300 s limit
+impl = current (sim.py), commit = c422a37, 2026-11-26T03:39:22
+  n     seconds    peak MB
+ 25    167.2178     2224.6
+ 26    376.7643     2794.5
+stopping: 376.8 s > --max-seconds 300.0
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv
+### 3b (c667dbe), n from 26, 300 s limit
+impl = current (sim.py), commit = c667dbe, 2026-11-26T03:48:26
+  n     seconds    peak MB
+ 26    225.7578     2794.4
+ 27    482.4128     5524.4
+stopping: 482.4 s > --max-seconds 300.0
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv
+### Opt1 (b993111), n from 21, 300 s limit
+impl = current (sim.py), commit = b993111, 2026-11-26T04:00:15
+  n     seconds    peak MB
+ 21    148.4309      129.8
+ 22    317.3353      215.1
+stopping: 317.3 s > --max-seconds 300.0
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv

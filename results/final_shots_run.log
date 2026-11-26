@@ -1,0 +1,12 @@
+### reference (sim_reference.py), 1000 shots
+impl = reference (sim_reference.py), commit = 38cd325-dirty, 2026-11-26T02:33:06
+n = 12, depth = 20, shots = 1000: 392.05 s, 2.6 shots/s, peak 40.9 MB
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv
+### round 3b (c667dbe: CNOT swap), 10000 shots
+impl = current (sim.py), commit = c667dbe, 2026-11-26T02:39:38
+n = 12, depth = 20, shots = 10000: 53.00 s, 188.7 shots/s, peak 43.2 MB
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv
+### 7991f4f (3c + X/Y/Z kernels; CZ and RY kernels removed), 10000 shots
+impl = current (sim.py), commit = 7991f4f, 2026-11-26T02:40:31
+n = 12, depth = 20, shots = 10000: 52.01 s, 192.3 shots/s, peak 43.8 MB
+appended to /Users/sam/code/git-code/river-takehome/results/benchmarks.csv
