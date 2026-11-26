@@ -147,6 +147,34 @@ def apply_x(psi, k):
     b[...] = tmp
 
 
+def apply_y(psi, k):
+    """Apply Y to qubit k, in place.
+
+    Y = [[0, -i], [i, 0]] is a swap with a factor: the new qubit k = 0
+    half is -i times the old qubit k = 1 half, and the new qubit k = 1
+    half is i times the old qubit k = 0 half. Two multiplies and no adds,
+    instead of the general four multiplies and two adds.
+
+    Uses the same reshaped view as :func:`apply_1q`.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param k: Qubit the gate acts on.
+    :type k: int
+
+    >>> psi = zero_state(1)
+    >>> apply_y(psi, 0)
+    >>> psi
+    array([0.+0.j, 0.+1.j])
+    """
+    view = psi.reshape(-1, 2, 2**k)  # a view of psi
+    a, b = view[:, 0, :], view[:, 1, :]
+    tmp = a.copy()      # old qubit-0 half
+    a[...] = -1j * b    # new 0-half = -i x old 1-half
+    tmp *= 1j           # in place
+    b[...] = tmp        # new 1-half = i x old 0-half
+
+
 def apply_2q(psi, M, j, k):
     """Apply a 4x4 gate M to qubits j and k, in place.
 
@@ -260,6 +288,8 @@ def apply_gate(psi, gate):
     name = gate[0]
     if name == "X":
         apply_x(psi, gate[1])              # a swap: faster than the 2x2 matrix
+    elif name == "Y":
+        apply_y(psi, gate[1])              # a swap with factors -i, i
     elif name in GATES_1Q:
         apply_1q(psi, GATES_1Q[name], gate[1])
     elif name in ROTATIONS:
@@ -325,6 +355,8 @@ def maybe_error(psi, q, p, rng):
         pauli = PAULIS[rng.integers(3)]
         if pauli == "X":
             apply_x(psi, q)                # a swap: faster than the 2x2 matrix
+        elif pauli == "Y":
+            apply_y(psi, q)                # a swap with factors -i, i
         else:
             apply_1q(psi, GATES_1Q[pauli], q)
 
