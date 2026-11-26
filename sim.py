@@ -81,6 +81,10 @@ def apply_1q(psi, U, k):
     pairs are then updated with a few NumPy operations instead of a
     Python loop over 2**n indices.
 
+    In place: the multiplies and adds write straight into psi (``*=``,
+    ``+=``), so there is one copy and one temporary instead of a new
+    array for every operation.
+
     :param psi: State vector; changed in place. Must be contiguous.
     :type psi: numpy.ndarray
     :param U: 2x2 gate matrix.
@@ -94,10 +98,13 @@ def apply_1q(psi, U, k):
     array([0.+0.j, 1.+0.j])
     """
     view = psi.reshape(-1, 2, 2**k)  # a view: writing to it writes to psi
-    a0 = view[:, 0, :].copy()        # copy: view[:, 0, :] is overwritten next
-    a1 = view[:, 1, :]
-    view[:, 0, :] = U[0, 0] * a0 + U[0, 1] * a1
-    view[:, 1, :] = U[1, 0] * a0 + U[1, 1] * a1
+    v0, v1 = view[:, 0, :], view[:, 1, :]
+    a0 = v0.copy()          # old v0, needed for the new v1
+    v0 *= U[0, 0]           # in place: no new array
+    v0 += U[0, 1] * v1      # one temporary (U01 * v1)
+    v1 *= U[1, 1]
+    a0 *= U[1, 0]           # reuse the copy instead of a new temporary
+    v1 += a0
 
 
 def apply_2q(psi, M, j, k):
