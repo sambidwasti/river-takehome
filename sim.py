@@ -195,6 +195,34 @@ def apply_cnot(psi, c, t):
     b[...] = tmp
 
 
+def apply_cz(psi, j, k):
+    """Apply CZ to qubits j and k, in place.
+
+    CZ only flips the sign of the amplitudes where both qubits are 1. So
+    this multiplies that one quarter of the state by -1: no matrix, no
+    copy, and the other three quarters are never touched. CZ is
+    symmetric, so the order of j and k does not matter.
+
+    Uses the same reshaped view as :func:`apply_2q`.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param j: One qubit.
+    :type j: int
+    :param k: The other qubit.
+    :type k: int
+
+    >>> psi = zero_state(2)
+    >>> psi[0], psi[3] = 0, 1      # both qubits 1
+    >>> apply_cz(psi, 0, 1)
+    >>> psi
+    array([ 0.+0.j,  0.+0.j,  0.+0.j, -1.+0.j])
+    """
+    hi, lo = max(j, k), min(j, k)
+    view = psi.reshape(-1, 2, 2**(hi - lo - 1), 2, 2**lo)  # a view of psi
+    view[:, 1, :, 1, :] *= -1      # both qubits 1: flip the sign
+
+
 def apply_gate(psi, gate):
     """Apply one gate tuple to the state, in place.
 
@@ -211,6 +239,8 @@ def apply_gate(psi, gate):
         apply_1q(psi, ROTATIONS[name](gate[1]), gate[2])
     elif name == "CNOT":
         apply_cnot(psi, gate[1], gate[2])  # a swap: faster than the 4x4 matrix
+    elif name == "CZ":
+        apply_cz(psi, gate[1], gate[2])    # a sign flip: faster than the 4x4 matrix
     elif name in GATES_2Q:
         apply_2q(psi, GATES_2Q[name], gate[1], gate[2])
     else:
