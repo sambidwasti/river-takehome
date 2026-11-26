@@ -294,3 +294,13 @@ In order of expected value, based on the profiles and the bandwidth numbers abov
    to pick the code path by state size (`INPLACE_MIN_SIZE = 2**19` in `apply_1q`, commit
    `b8508de`), later replaced by the numba kernel. I would look for more such crossovers, where
    the best method depends on n (cache size, call overhead), and choose the kernel accordingly.
+
+## Resources used
+
+- **AI assistants:** Claude (Anthropic) and ChatGPT (OpenAI), used for various assistance in tasks.
+- J. Watrous, *Basics of Quantum Information*, IBM Quantum Learning (free online course):
+  qubits, multi-qubit states, gates and measurement.
+- M. A. Nielsen and I. L. Chuang, *Quantum Computation and Quantum Information*, 10th
+  anniversary edition, Cambridge University Press (2010): Chapter 1 (fundamentals) and
+  Chapter 4 (quantum circuits and gate definitions).
+- Online references (e.g. Wikipedia) for background on specific topics.
