@@ -140,6 +140,39 @@ def apply_2q(psi, M, j, k):
                              + M[r, 2] * old[2] + M[r, 3] * old[3])
 
 
+def apply_cnot(psi, c, t):
+    """Apply CNOT with control c and target t, in place.
+
+    Where qubit c is 0 nothing changes. Where qubit c is 1, the amplitudes
+    with t = 0 and t = 1 swap places. So this is a swap of two quarters of
+    the state: no multiplications, and the other half is never touched.
+
+    Uses the same reshaped view as :func:`apply_2q`.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param c: Control qubit.
+    :type c: int
+    :param t: Target qubit.
+    :type t: int
+
+    >>> psi = zero_state(2)
+    >>> psi[0], psi[2] = 0, 1      # qubit 1 (the control) is 1
+    >>> apply_cnot(psi, 1, 0)
+    >>> psi
+    array([0.+0.j, 0.+0.j, 0.+0.j, 1.+0.j])
+    """
+    hi, lo = max(c, t), min(c, t)
+    view = psi.reshape(-1, 2, 2**(hi - lo - 1), 2, 2**lo)  # a view of psi
+    if c > t:
+        a, b = view[:, 1, :, 0, :], view[:, 1, :, 1, :]  # control 1; target 0, 1
+    else:
+        a, b = view[:, 0, :, 1, :], view[:, 1, :, 1, :]
+    tmp = a.copy()   # copy: a is overwritten next
+    a[...] = b
+    b[...] = tmp
+
+
 def apply_gate(psi, gate):
     """Apply one gate tuple to the state, in place.
 
@@ -154,6 +187,8 @@ def apply_gate(psi, gate):
         apply_1q(psi, GATES_1Q[name], gate[1])
     elif name in ROTATIONS:
         apply_1q(psi, ROTATIONS[name](gate[1]), gate[2])
+    elif name == "CNOT":
+        apply_cnot(psi, gate[1], gate[2])  # a swap: faster than the 4x4 matrix
     elif name in GATES_2Q:
         apply_2q(psi, GATES_2Q[name], gate[1], gate[2])
     else:
