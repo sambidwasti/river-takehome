@@ -3,9 +3,7 @@
 Sambid Wasti
 
 **Approach.** Build the simplest simulator I could trust, pin it down with tests, validate the
-noise end to end, then make it fast in measured steps: profile, change one thing, check against
-the reference, benchmark, and keep or revert. Every step is recorded (commit, log, profile and a
-row in `results/progress.md`), so each claim below can be traced.
+noise end to end, then make it fast in measured, recorded steps (Part 3, Method).
 
 ## Part 1: a correct simulator
 
@@ -36,27 +34,35 @@ Here we test to make sure the noise behaves as we expect.
 We start with one qubit in 1 (X), leave it idle for m time steps, then measure; p_gate = 0, so the only errors are idle and readout (`idle_noise.py`). Run m = 0, 5, …, 60 with 10,000 shots each and record the fraction f of shots that read 1. Each m uses its own seed, so the points are independent.
 
 ### The expected curve
-- Since there are only two outcomes for each qubit value, 0 or 1, it is binomial in nature.
+- Each shot reads 0 or 1, so the number of 1s is binomial.
 - As the number of idle steps m grows, the random X/Y errors scramble the qubit, so it becomes equally likely to read 0 or 1: the fraction tends to 1/2. (More shots only make each point more precise; they do not move it towards 1/2.)
-- Initially, at m = 0, we just have an X gate and a readout. The readout error is 2% hence at the beginning the ratio starts at 0.98 and will decay to 1/2. 
-- Per idle step, the bit flips with probability q = (2/3)·p_idle (X or Y flips it, Z does not). (This is the probability that one of those errors is chosen, not gate noise.)
+- Initially, at m = 0, we just have an X gate and a readout. The readout error is 2%, so the fraction starts at 0.98 and decays to 1/2.
+- Per idle step, the bit flips with probability q = (2/3)·p_idle (X or Y flips it, Z does not; this comes from which idle error is chosen, not from gate noise).
 - The function is f = 1/2 + d, where d is the distance above 1/2.
 - One step maps d to (1 − 2q)·d, so after m steps
   d = (1/2)(1 − 2q)^m, starting from d = 1/2 (the qubit is 1).
-- Readout flips the result with probability r = p_readout, which scales d by (1 − 2r), where r is the readout error.
+- Readout flips the result with probability r = p_readout, which scales d by (1 − 2r).
 
   f(m) = 1/2 + 1/2 · (1 − 2r) · (1 − 2q)^m,   q = 2/3 · p_idle
 
-The curve starts at 1 − r and decays to 1/2. It has the form: C + AX^m. The readout error defines the stretch or shrink of the function (as a simple transformation). As the constant A<1 will shrink the function and A>1 will stretch so it defines how fast it reaches 1/2. The q value that has p_idle, defines the horizontal stretch. Which also defines how fast it reaches 1/2.
+The curve starts at 1 − r and decays to 1/2. It has the form C + A·B^m, with C = 1/2,
+A = (1/2)(1 − 2r) and B = 1 − 2q. The two noise sources act differently:
+- **Readout error (A)** scales the curve vertically: a larger r shrinks the whole curve towards
+  1/2, but does not change how fast it decays.
+- **Idle error (B)** sets the decay rate, a horizontal stretch: a smaller p_idle gives B closer
+  to 1, so the curve approaches 1/2 more slowly.
+
+This is why p_readout and p_idle can be separated in the fit: one sets the height, the other
+the speed of the decay.
 
 ### Fit and uncertainty
 
 - Error bars on each point: binomial, sqrt(f(1 − f)/N), with N = 10,000 shots. This is the standard deviation, sqrt(variance).
 - p_readout is treated as known (it is an input of the simulation), so the fit has one
-  free parameter, p_idle. It is fitted with `scipy.optimize.curve_fit`, weighted by the error bars (`absolute_sigma=True`); 
+  free parameter, p_idle. It is fitted with `scipy.optimize.curve_fit`, weighted by the error bars (`absolute_sigma=True`).
 - Result: injected p_idle = 0.05, fitted **0.04911 ± 0.00054**, 1.66σ from the injected
   value, so consistent.
-- Ideally, we could switch and verify the p_readout by fixing p_idle.
+- One could instead fit p_readout with p_idle fixed, or fit both.
 
 ![Idle decay](figures/idle_decay.png)
 
@@ -69,30 +75,23 @@ compared with the drop of the curve over the first 20–30 steps, and the fitted
 
 - **Very small p_idle:** over m ≤ 60 the curve barely moves, so the decay is smaller than the error bars and p_idle is poorly determined. More steps or more shots are needed.
 - **Very large p_idle:** the curve reaches 1/2 within a few steps, so only the first points carry information. At p_idle = 0.75, 1 − 2q = 0 and the qubit is fully randomised after one step; beyond that the model no longer describes a decay.
-- **An interesting note** on this is that for horizontal expansion and stretch of the function, the smaller value of the coefficient (p_idle in this case) stretches. So a smaller p_idle stretches the curve and 1/2 is slowly reached.
-- **Large readout error:** the factor (1 − 2r) shrinks the whole signal; at r = 1/2 there is nothing left to fit. As mentioned above, for vertical stretch it's a direct multiplier so higher factor stretches it or lower shrinks.
+- **Small p_idle stretches the curve horizontally**, so it approaches 1/2 more slowly; this is
+  why m must extend further when p_idle is small.
+- **Large readout error:** a larger r makes the factor (1 − 2r) smaller, which shrinks the whole
+  curve vertically towards 1/2; the decay becomes harder to see against the error bars, and at
+  r = 1/2 there is nothing left to fit.
 
 ## Part 3: Making it fast
 
 ### 1. Hardware
 
-All benchmarks ran on one machine (details in `hardware.md`):
-
-| Item | Value |
-|---|---|
-| Machine | MacBook Pro (Mac15,6), Apple M3 Pro |
-| Cores | 11 (5 performance + 6 efficiency), no SMT |
-| Caches | L2 16 MiB (performance cluster), 4 MiB (efficiency cluster); 128-byte lines |
-| Memory | 18 GB unified LPDDR5, 150 GB/s peak bandwidth (Apple's published figure, not measured) |
-| GPU | 14-core M3 Pro GPU, not used |
+Apple M3 Pro (MacBook Pro), 11 cores (5 performance + 6 efficiency), 16 MiB L2, 18 GB unified
+memory with 150 GB/s published peak bandwidth; GPU not used. Details in `hardware.md`.
 
 ### 2. Reference version
 
-The Part 1 simulator is tagged `v1-reference` in git and kept unchanged as
-`sim_reference.py`, an exact copy of `sim.py` at that tag. It is the baseline for every
-speed-up (`benchmark.py --impl reference`) and the ground truth for the equivalence tests. A quick note, the initial coding was done with the idea of maximizing understanding and sacrificing some efficiency.
-
-
+`sim_reference.py` is an exact copy of `sim.py` at tag `v1-reference`: the baseline for every
+speed-up (`benchmark.py --impl reference`) and the ground truth for the equivalence tests.
 
 ### 3. Benchmark circuit (brickwork)
 
@@ -104,12 +103,12 @@ applies RY(θ) to every qubit with a random θ, then a TICK, then CNOTs on neigh
 
 ### 4. Method: profile, change one thing, measure
 
-Each round: profile both regimes with cProfile, change the one function the profile points at, check the results against the reference (`test_equivalence.py`), benchmark both regimes, and record the numbers in `results/progress.md` with the log and profile files. Each cProfile output is saved and used to pick the next component to optimise. Close results were rechecked with 3 alternating runs of the old and new code, and the medians compared. If a change made performance worse, it was reverted, and the reason was recorded.
+Each round: profile both regimes with cProfile, change the one function the profile points at, check the results against the reference (`test_equivalence.py`), benchmark both regimes, and record it (commit, log, profile, a row in `results/progress.md`), so each claim can be traced. Each cProfile output is saved and used to pick the next component to optimise. Close results were rechecked with 3 alternating runs of the old and new code, and the medians compared. If a change made performance worse, it was reverted, and the reason was recorded.
 
 ### 5. Optimisation rounds
 
-Speed-ups below are against the reference: **shots** = shots per second (table below),
-**n = 19** = many-qubits time at n = 19 (reference 81 s).
+Many-qubits time at n = 19 and speed-up against the reference (81 s); shots per second are in
+the table below.
 
 #### Initial - Reference
 - The reference was extremely slow as the number of qubits or shots increased. The profile
@@ -118,23 +117,23 @@ Speed-ups below are against the reference: **shots** = shots per second (table b
 
 #### Optimization 1 & 2
 - **Bottleneck:** the Python loops. Optimisation 1 vectorised `apply_1q` with NumPy on a
-  reshaped view, but gave only 2.3× (shots): the `apply_2q` loop then took 97% of the time
+  reshaped view, but gave only 2.4× (33.6 s at n = 19): the `apply_2q` loop then took 97% of the time
   (Amdahl's law). Optimisation 2 vectorised `apply_2q` too, so no Python loop over amplitudes is
   left.
-- This significantly helped: **42× (shots), 1.84 s at n = 19 (44×)**.
+- This significantly helped: **1.84 s at n = 19 (44×)**.
 
 #### Optimization 3a (Reverted)
 - **Bottleneck:** `apply_1q` was 48% of the time, about 8 NumPy calls per gate.
 - Attempted to apply it as one matrix multiplication. Because of the shape of the reshaped state
   (hundreds of thousands of tiny 2 × 2^k blocks), it was slower: n = 19 went from 1.59 s to
   2.25 s. Matrix multiplication is effective on a few large matrices, not on many small ones.
-  Shots were slightly faster (49×), but the many-qubits time was worse, so it was reverted.
+  Shots were slightly faster, but the many-qubits time was worse, so it was reverted.
 
 #### Optimization 3b
 - **Bottleneck:** CNOT went through the general 4×4 matrix (16 multiplies, 12 adds per group of
   four) although it only swaps two quarters of the state.
 - Recognising what each gate does and replacing the matrix operation with a swap:
-  **73× (shots), 0.944 s at n = 19 (86×)**.
+  **0.944 s at n = 19 (86×)**.
 
 #### Optimization 3c
 - **Bottleneck:** each `apply_1q` call created several temporary arrays (extra passes over memory).
@@ -143,20 +142,19 @@ Speed-ups below are against the reference: **shots** = shots per second (table b
 
 #### Optimization 3c+
 - **Bottleneck:** the noise errors X, Y, Z went through the general 2×2 matrix.
-- Replacing the matrix with simple operations (swap, sign flip) for X, Y and Z: **74× (shots),
-  0.925 s at n = 19 (88×)**, the same as 3c within noise, since these only run as rare errors.
+- Replacing the matrix with simple operations (swap, sign flip) for X, Y and Z: **0.925 s at n = 19 (88×)**, the same as 3c within noise, since these only run as rare errors.
 
 #### Optimization 3d (Reverted)
 - **Bottleneck:** RY is 400 of 590 gates and was done with complex arithmetic although its
   matrix is real.
 - RY with real arithmetic cut its flops about 3× but was 16–22% slower (1.089 s at n = 19),
-  because the kernel is memory-bound: the bytes moved did not change. Reverted (65× shots).
+  because the kernel is memory-bound: the bytes moved did not change. Reverted.
 
 #### Optimization 4: Numba
 - **Bottleneck:** `apply_1q` was still 75–87% of the time: about 7 NumPy passes over the state
   per gate, and about 18 µs of call overhead per gate for shots.
 - Numba compiles `apply_1q` into one loop: one pass, no temporaries, little overhead.
-  **195× (shots), 0.396 s at n = 19 (205×)**, and it reaches n = 29.
+  **0.396 s at n = 19 (205×)**, and it reaches n = 29.
 
 #### Correctness of optimised versions
 
@@ -191,7 +189,7 @@ reference (2.6 shots/s).
 | Optimisation 3d (reverted) | RY and CZ kernels | 169.1 | 65× |
 | Optimisation 4 | `apply_1q` as a numba loop | 506.2 | 195× |
 
-Shots per second does not depend on the number of shots (each shot does the same work), so for slower earlier runs, a smaller m was used and later  runs, 10⁵ shots was used. The reference at 10⁵ shots would take about
+Shots per second does not depend on the number of shots (each shot does the same work), so slower early versions were run with fewer shots and later ones with 10⁵. The reference at 10⁵ shots would take about
 11 hours.
 
 **Many qubits:** noiseless, 1 shot, D = 20, n from 4 until each version passes 300 s per run
@@ -200,19 +198,12 @@ table). Reference points for n = 4–19 are the mean of two runs. Generated by `
 
 ![Many qubits: time against n](figures/qubits_scaling.png)
 
-- **Parallel straight lines above n ≈ 14.** Every version grows about 2× per qubit, as the model
-  time ≈ (gates) × 2^n predicts (see Scaling). Optimisations lower the line; none changes the
-  slope, because every gate still has to touch the whole state.
-- **Optimisation 1 barely moves the line.** Only `apply_1q` was vectorised; the `apply_2q`
-  Python loop still dominated (Amdahl's law). Optimisation 2 removes that loop: the largest drop.
-- **3b and 3c+ almost overlap.** The CNOT swap was a clear gain; in-place operations added only
-  3–8%, and only for n ≥ 19.
-- **Optimisation 4 is lowest from n ≈ 17** and reaches n = 29. Its step from 28 to 29 is steeper
-  (4.1×): memory capacity, not bandwidth, becomes the limit (see Prediction).
-- **Flat line for Optimisation 4 below n ≈ 16.** About 0.14 s of loading numba's compiled code
-  is counted inside the timed call. This is a measurement artefact, not the algorithm.
-- **Noise below about 10 ms.** Single runs of a few milliseconds are dominated by timer noise,
-  so the small-n zig-zags carry no meaning.
+- **Parallel straight lines above n ≈ 14.** Every version grows about 2× per qubit (see
+  Scaling); optimisations lower the line but cannot change the slope, because every gate still
+  touches the whole state.
+- **Flat line for Optimisation 4 below n ≈ 16** is about 0.14 s of loading numba's compiled code
+  inside the timed call: a measurement artefact, not the algorithm.
+- **Zig-zags below about 10 ms** are timer noise in single runs.
 
 ### 6. Scaling
 
@@ -232,12 +223,10 @@ Round 4 (numba), the final version, up to the machine limit:
 | Bandwidth (GB/s) | 24.4 | 24.9 | 27.0 | 26.5 | 27.2 | 27.6 | 25.7 | 25.5 | 25.1 | 12.6 |
 | % of 150 GB/s peak | 16 | 17 | 18 | 18 | 18 | 18 | 17 | 17 | 17 | 8 |
 
-- **n < 17:** fixed costs dominate (Python start-up, loading numba, about 0.14 s), so the line is flat.
-- **n ≈ 17–20:** the state (16 × 2^n bytes) outgrows the 16 MiB L2 cache; the ratio rises towards 2.
+- **n ≈ 17–20:** the state (16 × 2^n bytes) outgrows the 16 MiB L2 cache; the ratio rises to 2.
 - **n = 21–28:** the state streams from main memory on every gate; the ratio holds at 2.0–2.2.
-- **n = 29:** 4.1× instead of 2.1×. The process peaked at 11 GB of 18 GB, most likely memory
-  pressure (compression and swapping). n = 30 needs 16 GiB (17.2 GB) for the state alone: n = 29 is the
-  limit of this machine.
+- **n = 29:** 4.1×: the process peaked at 11 GB of 18 GB (memory pressure). n = 30 needs 16 GiB
+  (17.2 GB) for the state alone, so n = 29 is the limit of this machine.
 
 #### Bytes, flops and bandwidth
 
@@ -277,9 +266,7 @@ These are estimates from byte counts and wall-clock times, not hardware counters
 
 #### Limiting resource in each regime
 
-- **Many qubits: memory bandwidth, then memory capacity.** Memory-bound at 17–18% of peak on
-  one core for n = 20–28; at n = 29 memory capacity takes over, and n = 30 does not fit
-  (see Scaling).
+- **Many qubits: memory bandwidth (n = 20–28), then memory capacity (n = 29)**; see Scaling.
 - **Many shots: Python overhead, not hardware.** At n = 12 the 64 KB state stays in cache, and a
   gate takes about 3.3 µs. The round 4 profile: numba `apply_1q` loop 41%, CNOT swap 17%,
   rebuilding the RY matrices every shot 14%, the rest Python bookkeeping (gate dispatch, noise
@@ -291,20 +278,19 @@ These are estimates from byte counts and wall-clock times, not hardware counters
 In order of expected value, based on the profiles and the bandwidth numbers above:
 
 1. **Multithreading (numba `prange`).** The many-qubits regime runs on one core at 17–18% of peak bandwidth. Splitting each gate's loop across cores is the most direct way to move closer to the memory limit.
-2. Extend and run the system longer to get even more extreme data points for the plot. 
-3. **Reuse work across shots.** In the shots regime the time is Python overhead, not hardware. Building the RY matrices once per circuit instead of every shot removes about 14%; moving CNOT into numba removes most of its 17%; running many shots together (one array per batch, noise drawn in bulk) would remove most of the per-gate Python cost.
-4. **Migrate to C++.** A C++ architecture might be faster and more useful here than Python. So I would migrate to C++ and check the benchmarks there. 
-5. **More benchmark iterations.** Most benchmarks here are single runs. Repeating each one
+2. **Reuse work across shots.** In the shots regime the time is Python overhead, not hardware. Building the RY matrices once per circuit instead of every shot (`ry()` is called 480,000 times in 2,000 shots) removes about 14%; moving CNOT into numba removes most of its 17%; running many shots together (one array per batch, noise drawn in bulk) would remove most of the per-gate Python cost.
+3. **Migrate to C++.** A C++ architecture might be faster and more useful here than Python. So I would migrate to C++ and check the benchmarks there. 
+4. **More benchmark iterations.** Most benchmarks here are single runs. Repeating each one
    several times would give a median and a spread (error bars) for every point: single runs
    are noisy, especially below about 10 ms, and two decisions here (3a, 3d) were only settled
    by 3-run rechecks after a single run looked ambiguous. I would also rerun all versions under
-   identical settings and write the large-n prediction down before running it.
-6. **Wider testing.** Run the equivalence tests at large n as well, so size-dependent code paths are always covered, and run the Part 2 limits (very small and very large p_idle).
-7. **Comparison with an established simulator** (e.g. Qiskit Aer) on the same circuits, and a GPU version using the M3's unified memory.
-8. **Test on a different machine.** Rerun the benchmarks on other hardware to check the results.
-9. **Cache the RY matrices.** `ry()` rebuilds the same 2×2 matrix for every gate in every shot (480,000 times in 2,000 shots, about 14% of the shots time in round 4). Building each matrix once per circuit and reusing it across shots is a small, safe change for the many-shots regime.
-10. **Size-dependent kernels.** Some changes helped one regime and hurt the other: in-place
+   identical settings, run longer to extend the large-n points, and write the large-n prediction
+   down before running it.
+5. **Wider testing.** Run the equivalence tests at large n as well, so size-dependent code paths are always covered, and run the Part 2 limits (very small and very large p_idle).
+6. **Comparison with an established simulator** (e.g. Qiskit Aer) on the same circuits, and a GPU version using the M3's unified memory.
+7. **Test on a different machine.** Rerun the benchmarks on other hardware to check the results.
+8. **Size-dependent kernels.** Some changes helped one regime and hurt the other: in-place
    operations (3c) were 3–8% faster for large n but 21% slower for shots at n = 12. The fix was
    to pick the code path by state size (`INPLACE_MIN_SIZE = 2**19` in `apply_1q`, commit
    `b8508de`), later replaced by the numba kernel. I would look for more such crossovers, where
-   the best method depends on n (cache size, call overhead), and choose the kernel/fucntions accordingly.
+   the best method depends on n (cache size, call overhead), and choose the kernel accordingly.
