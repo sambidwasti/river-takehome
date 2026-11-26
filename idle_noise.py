@@ -98,6 +98,7 @@ def plot_decay(ms, fs, errs, p_fit, p_err, p_idle, p_readout, shots, path):
                 label=f"simulated ({shots} shots per point)")
     ax.plot(m_fine, model(m_fine, p_fit, p_readout),
             label=f"fit: p_idle = {p_fit:.4f} ± {p_err:.4f}")
+    ax.set_xlim(left=0)   # start the axis exactly at m = 0
     ax.set_xlabel("idle steps m")
     ax.set_ylabel("fraction of shots reading 1")
     ax.set_title(f"Idle decay (injected p_idle = {p_idle}, p_readout = {p_readout})")
