@@ -199,6 +199,46 @@ def apply_z(psi, k):
     view[:, 1, :] *= -1              # qubit k = 1: flip the sign
 
 
+def apply_ry(psi, theta, k):
+    """Apply RY(theta) to qubit k, in place.
+
+    RY = [[c, -s], [s, c]] with c = cos(theta/2), s = sin(theta/2) is a
+    real matrix. Multiplying a complex array by a Python float still does
+    a full complex multiply, so instead psi is viewed as plain float64s
+    (each amplitude is its real and imaginary part side by side) and the
+    real c and s scale both parts: 2 flops per multiply instead of 6.
+
+    Float view: psi.view(float64) reshaped to (2**(n-k-1), 2, 2**(k+1)).
+    As in :func:`apply_1q`, the middle axis is bit k. Same two paths as
+    apply_1q: in place for large states, temporaries for small ones.
+
+    :param psi: State vector; changed in place. Must be contiguous.
+    :type psi: numpy.ndarray
+    :param theta: Rotation angle in radians.
+    :type theta: float
+    :param k: Qubit the gate acts on.
+    :type k: int
+
+    >>> psi = zero_state(1)
+    >>> apply_ry(psi, np.pi, 0)
+    >>> np.round(psi.real, 12)
+    array([0., 1.])
+    """
+    c, s = float(np.cos(theta / 2)), float(np.sin(theta / 2))  # same values as ry()
+    f = psi.view(np.float64).reshape(-1, 2, 2**(k + 1))  # same memory, as floats
+    a0, a1 = f[:, 0, :], f[:, 1, :]
+    old0 = a0.copy()          # old a0, needed for the new a1
+    if psi.size >= INPLACE_MIN_SIZE:   # large state: in place, less memory traffic
+        a0 *= c
+        a0 -= s * a1          # one temporary (s * a1)
+        a1 *= c
+        old0 *= s             # reuse the copy instead of a new temporary
+        a1 += old0
+    else:                              # small state: temporaries are faster
+        a0[...] = c * old0 - s * a1
+        a1[...] = s * old0 + c * a1
+
+
 def apply_2q(psi, M, j, k):
     """Apply a 4x4 gate M to qubits j and k, in place.
 
@@ -318,6 +358,8 @@ def apply_gate(psi, gate):
         apply_z(psi, gate[1])              # a sign flip on half the state
     elif name in GATES_1Q:
         apply_1q(psi, GATES_1Q[name], gate[1])
+    elif name == "RY":
+        apply_ry(psi, gate[1], gate[2])    # real arithmetic: cheaper than complex
     elif name in ROTATIONS:
         apply_1q(psi, ROTATIONS[name](gate[1]), gate[2])
     elif name == "CNOT":
