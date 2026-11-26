@@ -100,6 +100,7 @@ Python bookkeeping.
 6. **Compare with Qiskit Aer**, and try a GPU version on the M3's unified memory.
 7. **Test on a different machine** to check the results hold.
 8. **Size-dependent kernels:** 3c showed the best method can change with n; find more crossovers.
+9. **Documentation and CI:** generate the docs with Sphinx autodoc, and run pytest in CI/CD on every push.
 
 ## Resources used
 

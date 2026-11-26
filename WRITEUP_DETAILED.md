@@ -294,6 +294,9 @@ In order of expected value, based on the profiles and the bandwidth numbers abov
    to pick the code path by state size (`INPLACE_MIN_SIZE = 2**19` in `apply_1q`, commit
    `b8508de`), later replaced by the numba kernel. I would look for more such crossovers, where
    the best method depends on n (cache size, call overhead), and choose the kernel accordingly.
+9. **Documentation and CI/CD.** Clean up the docstrings and generate the documentation with
+   Sphinx autodoc, and set up a CI/CD pipeline that runs the pytest suite on every push, so the
+   documentation stays current and the tests run automatically instead of by hand.
 
 ## Resources used
 
