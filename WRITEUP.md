@@ -34,7 +34,7 @@ We start with one qubit in 1 (X), leave it idle for m time steps, then measure; 
 
 ### The expected curve
 - Since there are only two outcomes for each Qubit value, 0 or 1, it is binomial in nature.
-- Experimental probablity puts them at 50/50 at large n when we randomly assign noise, have probability value and readout error. So at higher shots,(n) it will reach to 1/2 the ratio eventually.
+- As the number of idle steps m grows, the random X/Y errors scramble the qubit, so it becomes equally likely to read 0 or 1: the fraction tends to 1/2. (More shots only make each point more precise; they do not move it towards 1/2.)
 - Initially, for shot 1, we just have a X gate and a readout. The readout error is 2% hence at beginning, the ratio starts at 0.98 and will decay to 1/2. 
 - Per idle step, the bit flips with probability q = (2/3)·p_idle (X or Y flips it, Z does not). (This is just the probability to be chosen one of the gates, and not gate noise)
 - The funciton f = 1/2 + d. Where d is the distance above 1/2.
@@ -106,33 +106,55 @@ Each round: profile both regimes with cProfile, change the one function the prof
 
 ### 5. Optimisation rounds
 
+Speed-ups below are against the reference: **shots** = shots per second (table below),
+**n = 19** = many-qubits time at n = 19 (reference 81 s).
+
 #### Initial - Reference
-- The reference mode was extremely slow as the no of qubit or the no. of shot increased. One of the obvious issue was the loop iteration in applying the 1 qubit gates and 2 qubit gates. If we use this as (1x)
+- The reference was extremely slow as the number of qubits or shots increased. The profile
+  showed why: Python loops over all 2^n amplitudes in `apply_1q` (59%) and `apply_2q` (41%).
+  This is the baseline (1×).
 
-#### Optimization 1 & 2 
-- As mentioned above, the first optimization was performed to vectorize the numpy array so it could be interated using numpy not for loop. This was done for all gates.
-- This significantly helped with improvement. (44x)
+#### Optimization 1 & 2
+- **Bottleneck:** the Python loops. Optimisation 1 vectorised `apply_1q` with NumPy on a
+  reshaped view, but gave only 2.3× (shots): the `apply_2q` loop then took 97% of the time
+  (Amdahl's law). Optimisation 2 vectorised `apply_2q` too, so no Python loop over amplitudes is
+  left.
+- This significantly helped: **42× (shots), 1.84 s at n = 19 (44×)**.
 
-#### Optimizaiton 3a (Reverted): 
-- Attempted to apply matrix multiplicaiton but due to the structure of the matrix, shape and size, decreased the performance. Ideally, matrix multiplicaiton is effective for large array not a lot of smaller ones (51x). The performance was okay on shots but not good in memory. This was reverted.
+#### Optimization 3a (Reverted)
+- **Bottleneck:** `apply_1q` was 48% of the time, about 8 NumPy calls per gate.
+- Attempted to apply it as one matrix multiplication. Because of the shape of the reshaped state
+  (hundreds of thousands of tiny 2 × 2^k blocks), it was slower: n = 19 went from 1.59 s to
+  2.25 s. Matrix multiplication is effective on a few large matrices, not on many small ones.
+  Shots were slightly faster (49×), but the many-qubits time was worse, so it was reverted.
 
-#### Optimizaiton 3b.
-- This is recognizing the effect of each gates and replacing matrix opration to simpler operations (75x)
+#### Optimization 3b
+- **Bottleneck:** CNOT went through the general 4×4 matrix (16 multiplies, 12 adds per group of
+  four) although it only swaps two quarters of the state.
+- Recognising what each gate does and replacing the matrix operation with a swap:
+  **73× (shots), 0.944 s at n = 19 (86×)**.
 
 #### Optimization 3c
-- Replacing regular operator with combined operator, for example X=X+b to X+=b.
-- This increaded around 3-8%
+- **Bottleneck:** each `apply_1q` call created several temporary arrays (extra passes over memory).
+- Replacing regular operators with in-place ones, for example `x = x + b` with `x += b`: 3–8%
+  faster for n ≥ 19, but 21% slower for shots (small arrays), so it is used only for n ≥ 19.
 
+#### Optimization 3c+
+- **Bottleneck:** the noise errors X, Y, Z went through the general 2×2 matrix.
+- Replacing the matrix with simple operations (swap, sign flip) for X, Y and Z: **74× (shots),
+  0.925 s at n = 19 (88×)**, the same as 3c within noise, since these only run as rare errors.
 
-#### Optimization 3c+. 
-- Replacing matrix with simple operations for X, Y and Z.
-- This was slightly faster (77x)
-
-#### Optimizaiton 3d (Reverted)
-- RY  was also optimized but had to be reverted fast becuase it hindered and revereted because it lowered the performance. (68k)
+#### Optimization 3d (Reverted)
+- **Bottleneck:** RY is 400 of 590 gates and was done with complex arithmetic although its
+  matrix is real.
+- RY with real arithmetic cut its flops about 3× but was 16–22% slower (1.089 s at n = 19),
+  because the kernel is memory-bound: the bytes moved did not change. Reverted (65× shots).
 
 #### Optimization 4: Numba
-- Numba has been applied. It changes how the loop is done and it increased the benchmark significantly. (202x)
+- **Bottleneck:** `apply_1q` was still 75–87% of the time: about 7 NumPy passes over the state
+  per gate, and about 18 µs of call overhead per gate for shots.
+- Numba compiles `apply_1q` into one loop: one pass, no temporaries, little overhead.
+  **195× (shots), 0.396 s at n = 19 (205×)**, and it reaches n = 29.
 
 #### Correctness of optimised versions
 
