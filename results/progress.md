@@ -13,6 +13,7 @@ regimes. Speed-ups are against the reference (`sim_reference.py`, tag `v1-refere
 | 2 | bbb0548 | Vectorise `apply_2q` (reshaped view) | 47 pass; identical to reference (random 4×4: 1.8e-15 rounding) | 1.84 s | 23 | 109 (10,000 shots) | 44× | vec2q_run.log | profile_2_vec2q_*.txt |
 | 3a | 5d4799d | `apply_1q` as one matmul (`U @ view`) | 112 pass (72 equivalence) | 2.25 s (median of 3) | 23 | 126.5 (10,000 shots) | 36× | round3a_run.log | profile_3a_matmul1q_*.txt |
 | 3b | a8001df | CNOT as a swap of two quarters (`apply_cnot`); 3a reverted first | 112 pass (72 equivalence) | 0.944 s (median of 3) | 24 | 193.0 (10,000 shots) | 86× | round3b_run.log | profile_3b_cnot_*.txt |
+| 3c | 652e82c | `apply_1q` in place (`*=`, `+=`; one copy, one temporary) | 112 pass (72 equivalence) | 0.891 s (median of 3) | 24 | 152.3 (10,000 shots) | 91× | round3c_run.log | profile_3c_inplace_*.txt |
 
 ## Notes
 
@@ -33,3 +34,13 @@ regimes. Speed-ups are against the reference (`sim_reference.py`, tag `v1-refere
   For small k the slices are strided (k = 0: every other element), wasting half of each cache line. RY is
   real but stored as complex, so each multiply costs 6 flops instead of 2. In the shots run (n = 12, 2048
   amplitudes per half) the arithmetic is under 1 µs; the ~18 µs per call is fixed overhead of ~10 NumPy calls.
+- Round 3c (in place): quick check against 3b, 3 runs each, alternating (medians, s):
+  n = 17 0.234 → 0.247, 18 0.464 → 0.469, 19 0.966 → 0.891, 20 2.183 → 2.033, 21 3.968 → 4.077,
+  22 9.373 → 9.029, 23 19.662 → 18.989, 24 42.436 → 39.292. So 3–8% faster from n = 22 up (and at
+  n = 19–20), about the same or slightly slower at n = 17–18 and 21: removing temporaries cuts only part
+  of the traffic, since about 7 passes over half the state remain. The shots regime got slower,
+  confirmed by a recheck (n = 12, 2000 shots, 3 runs each, alternating): 3b 199.6, 194.4, 191.7 against
+  in place 155.4, 153.9, 153.7 shots/s, medians 194.4 → 153.9 (21% slower). Likely cause: on small arrays
+  the in-place writes into strided views cost more than fresh contiguous temporaries.
+  Decision: keep in place only for large states. `apply_1q` now picks the path by size
+  (`INPLACE_MIN_SIZE = 2**19`, i.e. n >= 19, where the gain starts); smaller states use the 3b code.

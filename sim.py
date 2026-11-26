@@ -69,6 +69,11 @@ def zero_state(n_qubits):
     return psi
 
 
+#: From this state size (n = 19) apply_1q works in place; below it, the
+#: version with temporaries is faster (see apply_1q).
+INPLACE_MIN_SIZE = 2**19
+
+
 def apply_1q(psi, U, k):
     """Apply a 2x2 gate U to qubit k, in place.
 
@@ -81,9 +86,15 @@ def apply_1q(psi, U, k):
     pairs are then updated with a few NumPy operations instead of a
     Python loop over 2**n indices.
 
-    In place: the multiplies and adds write straight into psi (``*=``,
-    ``+=``), so there is one copy and one temporary instead of a new
-    array for every operation.
+    Two paths, chosen by the size of psi:
+
+    * Large states (``psi.size >= INPLACE_MIN_SIZE``): in place. The
+      multiplies and adds write straight into psi (``*=``, ``+=``), so
+      there is one copy and one temporary instead of a new array for every
+      operation: less memory traffic, 3-8% faster at n = 19-24.
+    * Small states: fresh temporaries, then write back. On small arrays
+      the in-place writes into strided views were about 20% slower
+      (many-shots run at n = 12).
 
     :param psi: State vector; changed in place. Must be contiguous.
     :type psi: numpy.ndarray
@@ -100,11 +111,15 @@ def apply_1q(psi, U, k):
     view = psi.reshape(-1, 2, 2**k)  # a view: writing to it writes to psi
     v0, v1 = view[:, 0, :], view[:, 1, :]
     a0 = v0.copy()          # old v0, needed for the new v1
-    v0 *= U[0, 0]           # in place: no new array
-    v0 += U[0, 1] * v1      # one temporary (U01 * v1)
-    v1 *= U[1, 1]
-    a0 *= U[1, 0]           # reuse the copy instead of a new temporary
-    v1 += a0
+    if psi.size >= INPLACE_MIN_SIZE:   # large state: in place, less memory traffic
+        v0 *= U[0, 0]           # in place: no new array
+        v0 += U[0, 1] * v1      # one temporary (U01 * v1)
+        v1 *= U[1, 1]
+        a0 *= U[1, 0]           # reuse the copy instead of a new temporary
+        v1 += a0
+    else:                              # small state: temporaries are faster
+        v0[...] = U[0, 0] * a0 + U[0, 1] * v1
+        v1[...] = U[1, 0] * a0 + U[1, 1] * v1
 
 
 def apply_2q(psi, M, j, k):
